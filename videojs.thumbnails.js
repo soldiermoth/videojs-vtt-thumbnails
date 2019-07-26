@@ -97,7 +97,7 @@
           thumbTrack = player.textTracks()[i];
           //Chrome needs this
           thumbTrack.mode = 'hidden';
-          if (thumbTrack.cues.length > 0) {
+          if (thumbTrack.cues && thumbTrack.cues.length && thumbTrack.cues.length > 0) {
             break;
           }
         }
