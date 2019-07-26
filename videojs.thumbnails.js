@@ -60,6 +60,21 @@
       } 
       var data = hashstring.substring(5).split(',');
       return {src:defaults.basePath + lsrc,w:parseInt(data[2]),h:parseInt(data[3]),x:parseInt(data[0]),y:parseInt(data[1])};
+    },
+    androidActivePolyfill = function(player) {
+      if (navigator.userAgent.toLowerCase().indexOf("android") == -1) {
+        return
+      }
+      // Android doesn't support :active and :hover on non-anchor and non-button elements
+      // so, we need to fake the :active selector for thumbnails to show up.
+      (function() {
+        var progressControl = player.controlBar.progressControl,
+          addFakeActive = function() { progressControl.addClass('fake-active'); },
+          removeFakeActive = function() { progressControl.removeClass('fake-active'); };
+        progressControl.on('touchstart', addFakeActive);
+        progressControl.on('touchend', removeFakeActive);
+        progressControl.on('touchcancel', removeFakeActive);
+      })();
     };
 
   /**
@@ -70,41 +85,25 @@
     defaults.basePath = options.basePath || defaults.basePath;
     settings = extend({}, defaults, options);
     player = this;
-    //detect which track we use. For now we just use the first metadata track
-    var numtracks = player.textTracks().length;
-    if (numtracks === 0) {
-      return;
-    }
-    i = 0;
-    while (i<numtracks) {
-      if (player.textTracks()[i].kind==='metadata') {
-        thumbTrack = player.textTracks()[i];
-        //Chrome needs this
-        thumbTrack.mode = 'hidden';
-        break;
+    player.on('loadedmetadata', function() {
+      //detect which track we use. For now we just use the first metadata track
+      var numtracks = player.textTracks().length;
+      if (numtracks === 0) {
+        return;
       }
-      i++;
-    }
-    (function() {
-      var progressControl, addFakeActive, removeFakeActive;
-      // Android doesn't support :active and :hover on non-anchor and non-button elements
-      // so, we need to fake the :active selector for thumbnails to show up.
-      if (navigator.userAgent.toLowerCase().indexOf("android") !== -1) {
-        progressControl = player.controlBar.progressControl;
-
-        addFakeActive = function() {
-          progressControl.addClass('fake-active');
-        };
-        removeFakeActive = function() {
-          progressControl.removeClass('fake-active');
-        };
-
-        progressControl.on('touchstart', addFakeActive);
-        progressControl.on('touchend', removeFakeActive);
-        progressControl.on('touchcancel', removeFakeActive);
+      i = 0;
+      while (i<numtracks) {
+        if (player.textTracks()[i].kind==='metadata') {
+          thumbTrack = player.textTracks()[i];
+          //Chrome needs this
+          thumbTrack.mode = 'hidden';
+          break;
+        }
+        i++;
       }
-    })();
-
+    });
+    
+    androidActivePolyfill(player); ;
     // create the thumbnail
     div = document.createElement('div');
     div.className = 'vjs-thumbnail-holder';
@@ -114,19 +113,12 @@
 
     // keep track of the duration to calculate correct thumbnail to display
     duration = player.duration();
-    
     // when the container is MP4
-    player.on('durationchange', function(event) {
-      duration = player.duration();
-    });
-
+    player.on('durationchange', function() { duration = player.duration(); });
     // when the container is HLS
-    player.on('loadedmetadata', function(event) {
-      duration = player.duration();
-    });
-
+    player.on('loadedmetadata', function() { duration = player.duration(); });
     // add the thumbnail to the player
-    progressControl = player.controlBar.progressControl;
+    var progressControl = player.controlBar.progressControl;
     progressControl.el().appendChild(div);
 
     moveListener = function(event) {
